@@ -13,7 +13,7 @@ double clip(double n, double lower, double upper) {
 }
 
 int main() {
-    SuspensionSystem myChassis;
+    Suspension mySuspension;
 
     // --- 仿真设置 ---
     double dt = 0.001;          // 仿真步长 1ms (快速环周期)
@@ -51,13 +51,13 @@ int main() {
 
         // 正弦波路面输入
         double z_road = 0.02 * std::sin(2 * M_PI * 1.5 * t);
-        double vz_road = 0.02 * 2 * M_PI * 1.5 * std::cos(2 * M_PI * 1.5 * t);
+       double vz_road = 0.02 * 2 * M_PI * 1.5 * std::cos(2 * M_PI * 1.5 * t);
 
 /*
         //平路
        double z_road = 0.0;
         double vz_road = 0.0;
-        */
+*/
 /*
         // 模拟车速变化：前2秒低速30km/h，后2秒急加速，线性加速到130km/h
         if (t < 2.0) vehicle_speed_kmh = 30.0;
@@ -71,10 +71,10 @@ int main() {
         // 假设四轮一致
         std::array<double, 4> x_s = {suspension_deflection, suspension_deflection, suspension_deflection, suspension_deflection};
         std::array<double, 4> dx_s = {vz_road - vz_body, vz_road - vz_body, vz_road - vz_body, vz_road - vz_body};
-        // --- 在此处计算平均值 (把震动滤掉) ---
-        filtered_height = filtered_height * (1.0 - filter_alpha) + x_s[0] * filter_alpha;
+
         // 慢速回路 (Slow Loop) - 空气弹簧高度控制 (5Hz)
         t_slow_loop += dt;
+        filtered_height = filtered_height * (1.0 - filter_alpha) + x_s[0] * filter_alpha;
         if (t_slow_loop >= slow_loop_period) {
             t_slow_loop = 0.0; // 重置计时器
 
@@ -109,6 +109,50 @@ int main() {
                 flow_rate_cmd = {flow_val, flow_val, flow_val, flow_val};  // 将计算出的 flow_val 应用到所有轮子
         }
 
+        // 快速回路 (Fast Loop) - CDC 天棚阻尼控制 (1000Hz)
+        // 逻辑：读取加速度 -> 积分得速度 -> 计算 Skyhook 阻尼 -> 输出电流
+
+        // A. 状态估计 (State Estimation)
+        // 实际中通过加速度积分，这里直接用仿真变量 vz_body
+        double v_body = vz_body;
+        double v_rel = dx_s[0];  // 相对速度
+
+        // B. 天棚控制算法 (Skyhook Logic)
+        // F_sky = C_sky * v_body
+        double C_sky = 3000.0; // 天棚阻尼系数
+        double F_target = C_sky * v_body; // 理想阻尼力
+
+        // C. 半主动逻辑判断 (Semi-Active Constraint)
+        // 如果 F_target 与 v_rel 同向 (做功为负，耗能)，则减震器可以执行
+        // 否则输出最小阻尼
+        double current_out = 0.0;
+
+        // 判据：(理想力 * 相对速度 > 0) 意味着理想力方向与相对运动方向相同(阻碍运动)
+        // CDC 只能产生阻碍运动的力
+        // 注意方向定义：F_cdc 通常定义为阻碍压缩/拉伸
+
+        // 简化版 Skyhook On-Off 控制：
+        // 如果 车身向上运动 (v_body > 0) 且 悬架在拉伸 (v_rel < 0) -> 需要拉住车身 -> 高阻尼
+        // 如果 车身向下运动 (v_body < 0) 且 悬架在压缩 (v_rel > 0) -> 需要撑住车身 -> 高阻尼
+        // 综合：v_body * v_rel < 0 (基于标准坐标系)
+        // 或者是 v_body * (v_body - v_wheel) > 0 ...
+
+        if (v_body * v_rel > 0) { // 同号
+            // 需要大阻尼 (High State)
+            // 将理想力映射为电流 (简单比例映射)
+            // 假设 1.6A 对应最大阻尼
+            double gain = 0.01;
+            current_out = std::abs(F_target) * gain;
+        } else {
+            // 需要小阻尼 (Low State)
+            current_out = 0.0; // 最小电流
+        }
+
+        // 限幅 (CDC 电流范围通常 0 - 1.6A)
+        current_out = clip(current_out, 0.0, 1.6);
+
+        cdc_current_cmd = {current_out, current_out, current_out, current_out};
+ /*
         // ============================================================
         // [RL 接口] 强化学习动作 -> 物理电流映射
         // ============================================================
@@ -129,16 +173,16 @@ int main() {
 
         // 4. 下发指令
         cdc_current_cmd = {target_current, target_current, target_current, target_current};
-
+*/
         // ============================================================
         // 物理模型解算 (Physics Solver)
         // ============================================================
 
         // 1. 计算空气弹簧力 (输入：充放气指令)
-        std::array<double, 4> F_air = myChassis.airSpring.calculate_force(flow_rate_cmd, x_s, dx_s, dt);
+        std::array<double, 4> F_air = mySuspension.F_active_air_spring(flow_rate_cmd, x_s, dx_s, dt);
 
         // 2. 计算 CDC 阻尼力 (输入：电流指令)
-        std::array<double, 4> F_cdc = myChassis.cdcDamper.calculate_force(cdc_current_cmd, dx_s);
+        std::array<double, 4> F_cdc = mySuspension.F_cdc_damper(cdc_current_cmd, dx_s);
 
         // 3. 计算合力与车身动力学 (简单的 1/4 车模型用于闭环演示)
         // F_total = F_air + F_cdc
@@ -167,8 +211,8 @@ int main() {
                        << az_body << ","
                        << vz_body << ","
                        << flow_rate_cmd[0] << ","
-                       << myChassis.airSpring.debug_k1_FL << ","
-                       << myChassis.airSpring.debug_c1_FL
+                       << Suspension::AirSpringParams::debug_k1_FL << ","
+                       << Suspension::AirSpringParams::debug_c1_FL
                        << std::endl;
     }
 
