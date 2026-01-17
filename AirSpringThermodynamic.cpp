@@ -39,6 +39,13 @@ double Suspension::CDCSuspensionParams::C3_f = 0.000000105;
 double Suspension::CDCSuspensionParams::C3_r = 0.000000105;
 
 // 1. 主动空气弹簧逻辑 (支持充放气)
+/**
+ * @brief 计算主动空气弹簧力
+ * @param control_flow_rate 充放气质量流率 (kg/s) [慢速环输入]
+ * @param suspension_x_s 悬架动行程 （m)
+ * @param suspension_dx_s 悬架动速度 （m/s）
+ * @param dt 时间步长 (s)
+ */
 std::array<double, 4> Suspension::F_active_air_spring(
         const std::array<double, 4> &control_flow_rate,
         const std::array<double, 4> &suspension_x_s,
@@ -86,9 +93,11 @@ std::array<double, 4> Suspension::F_active_air_spring(
         // 3. 重新计算受限后的绝对压力 (基于绝热过程 PV^gamma = C)
         //    Safe_P_b 是当前时刻气囊内的真实绝对压力
         double Safe_P_b = P_active * std::pow(V_b0_geom / Current_V_b, AirSpringParams::Gamma);
-        // 4. 直接计算总支撑力
-        //    力 = (内部绝对压力 - 外部大气压) * 当前有效面积
-        F_total[i] = (Safe_P_b - P_atm) * A_eff;
+        // 4. 计算总支撑力 = 弹性力 + 热力学阻尼力
+        //    F = (P - P_atm) * A + c1 * v
+        double F_elastic = (Safe_P_b - P_atm) * A_eff;
+        double F_damping = C1 * suspension_dx_s[i];
+        F_total[i] = F_elastic + F_damping;
         // 5. 更新调试变量 (供 Python 画图用)
         if (i == 0) {
             // 计算等效刚度仅供观察 (不参与物理结算，所以即使是负的也不会导致仿真炸)
@@ -102,6 +111,13 @@ std::array<double, 4> Suspension::F_active_air_spring(
     return F_total;
 }
 // 2. CDC 减震器逻辑
+/**
+ * @brief
+ * @param suspension_current | 悬架电流          | A  |
+ * @param suspension_dx_s    | 悬架相对速度       | m/s  |
+ * @param vehicle_x_s        | 未使用            |   |
+ * @param vehicle_body_vx    | 车辆纵向速度       | m/s  |
+*/
 std::array<double, 4> Suspension::F_cdc_damper(
         const std::array<double, 4> &suspension_current,
         const std::array<double, 4> &suspension_dx_s) {
