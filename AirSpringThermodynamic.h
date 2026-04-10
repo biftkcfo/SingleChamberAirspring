@@ -1,7 +1,9 @@
 #ifndef AIR_SPRING_THERMODYNAMIC_H
 #define AIR_SPRING_THERMODYNAMIC_H
 #include <array>
-constexpr double PI = 3.14159265358979323846;
+#ifndef pi
+#define pi 3.14159265358979323846
+#endif
 class Suspension {
 public:
     // 1. 参数结构体 (按照规范：静态、区分前后轴)
@@ -26,14 +28,6 @@ public:
         // --- 初始高度 ---
         static double H0_f;
         static double H0_r;
-
-
-        inline static std::array<double, 4> zm_state = {0.0, 0.0, 0.0, 0.0};        // 空气弹簧迟滞状态
-        inline static std::array<double, 4> current_gas_mass = {0.0, 0.0, 0.0, 0.0};//实时气体质量
-        inline static bool is_initialized = false;
-        // （新增）用于数据记录的调试变量 (左前轮)
-        inline static double debug_k1_FL = 0.0;
-        inline static double debug_c1_FL = 0.0;
     };
     //CDC减震器参数（CDC Damper Parameters）
     struct CDCSuspensionParams {
@@ -61,7 +55,12 @@ public:
         double debug_c1_FL = 0.0; // 实时空气阻尼
     };
 
-
+    std::array<double, 4> zm_state = {0.0, 0.0, 0.0, 0.0};       // 空气弹簧迟滞状态
+    std::array<double, 4> current_gas_mass = {0.0, 0.0, 0.0, 0.0};//实时气体质量
+    bool is_initialized = false;
+    // （新增）用于数据记录的调试变量 (左前轮)
+    double debug_k1_FL = 0.0;
+    double debug_c1_FL = 0.0;
     // 4. 功能接口
     /**
      * @brief 计算主动空气弹簧力 (含充放气控制)

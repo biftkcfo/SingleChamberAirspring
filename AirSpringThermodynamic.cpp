@@ -39,13 +39,6 @@ double Suspension::CDCSuspensionParams::C3_f = 0.000000105;
 double Suspension::CDCSuspensionParams::C3_r = 0.000000105;
 
 // 1. 主动空气弹簧逻辑 (支持充放气)
-/**
- * @brief 计算主动空气弹簧力
- * @param control_flow_rate 充放气质量流率 (kg/s) [慢速环输入]
- * @param suspension_x_s 悬架动行程 （m)
- * @param suspension_dx_s 悬架动速度 （m/s）
- * @param dt 时间步长 (s)
- */
 std::array<double, 4> Suspension::F_active_air_spring(
         const std::array<double, 4> &control_flow_rate,
         const std::array<double, 4> &suspension_x_s,
@@ -56,11 +49,11 @@ std::array<double, 4> Suspension::F_active_air_spring(
         constexpr double P_atm = 101325.0;
 
     // 初始化质量
-    if (!AirSpringParams::is_initialized) {
+    if (!is_initialized) {
         double m0_f = (AirSpringParams::P_b0_f * AirSpringParams::V_b0_f) / (AirSpringParams::R_gas * AirSpringParams::T_atm);
         double m0_r = (AirSpringParams::P_b0_r * AirSpringParams::V_b0_r) / (AirSpringParams::R_gas * AirSpringParams::T_atm);
-        AirSpringParams::current_gas_mass = {m0_f, m0_f, m0_r, m0_r};
-        AirSpringParams::is_initialized = true;
+        current_gas_mass = {m0_f, m0_f, m0_r, m0_r};
+        is_initialized = true;
     }
 
     for (size_t i = 0; i < 4; ++i) {
@@ -71,9 +64,9 @@ std::array<double, 4> Suspension::F_active_air_spring(
         const double Slope_A = front_rear ? AirSpringParams::A_eff_slope_f : AirSpringParams::A_eff_slope_r;
         const double Int_A = front_rear ? AirSpringParams::A_eff_int_f : AirSpringParams::A_eff_int_r;
         const double H0 = front_rear ? AirSpringParams::H0_f : AirSpringParams::H0_r;
-        AirSpringParams::current_gas_mass[i] += control_flow_rate[i] * dt;// [慢速环核心] 更新气体质量
-        if (AirSpringParams::current_gas_mass[i] < 1e-6) AirSpringParams::current_gas_mass[i] = 1e-6;
-        const double P_active = (AirSpringParams::current_gas_mass[i] * AirSpringParams::R_gas * AirSpringParams::T_atm) / V_b0_geom; // 计算当前基准压力 (Active Pressure)
+        this->current_gas_mass[i] += control_flow_rate[i] * dt;// [慢速环核心] 更新气体质量
+        if (this->current_gas_mass[i] < 1e-6) this->current_gas_mass[i] = 1e-6;
+        const double P_active = (this->current_gas_mass[i] * AirSpringParams::R_gas * AirSpringParams::T_atm) / V_b0_geom; // 计算当前基准压力 (Active Pressure)
         const double Current_H = H0 - suspension_x_s[i];
         double A_eff = Slope_A * Current_H + Int_A;
         double Current_V_b = V_b0_geom - A_eff * suspension_x_s[i];
@@ -81,14 +74,14 @@ std::array<double, 4> Suspension::F_active_air_spring(
         const double Current_P_b = P_active * std::pow(V_b0_geom / Current_V_b, AirSpringParams::Gamma);
         const double K1 = (AirSpringParams::Gamma * Current_P_b * std::pow(A_eff, 2)) / Current_V_b;
         double C1 = 0.0;
-        if (Kb > 1e-9) C1 =((AirSpringParams::Cv * AirSpringParams::current_gas_mass[i]) / Kb) * K1;
+        if (Kb > 1e-9) C1 =((AirSpringParams::Cv * this->current_gas_mass[i]) / Kb) * K1;
         if (i == 0) {
-            AirSpringParams::debug_k1_FL = K1;
-            AirSpringParams::debug_c1_FL = C1;
+            this->debug_k1_FL = K1;
+            this->debug_c1_FL = C1;
         }
-        // 1. 面积限幅保护
+        // 1. 面积限幅保护 (防止飞天时面积变负)
         if (A_eff < 1e-5) A_eff = 1e-5;
-        // 2. 体积限幅保护
+        // 2. 体积限幅保护 (防止压死时体积变负导致爆炸)
         if (Current_V_b < 1e-6) Current_V_b = 1e-6;
         // 3. 重新计算受限后的绝对压力 (基于绝热过程 PV^gamma = C)
         //    Safe_P_b 是当前时刻气囊内的真实绝对压力
@@ -104,20 +97,13 @@ std::array<double, 4> Suspension::F_active_air_spring(
             // 刚度 = 压力刚度项 + 面积刚度项
             double K_pressure = (AirSpringParams::Gamma * Safe_P_b * A_eff * A_eff) / Current_V_b;
             double K_area = (Safe_P_b - P_atm) * (-Slope_A);
-            AirSpringParams::debug_k1_FL = K_pressure + K_area;
-            AirSpringParams::debug_c1_FL = C1;
+            this->debug_k1_FL = K_pressure + K_area;
+            this->debug_c1_FL = C1;
         }
     }
     return F_total;
 }
 // 2. CDC 减震器逻辑
-/**
- * @brief
- * @param suspension_current | 悬架电流          | A  |
- * @param suspension_dx_s    | 悬架相对速度       | m/s  |
- * @param vehicle_x_s        | 未使用            |   |
- * @param vehicle_body_vx    | 车辆纵向速度       | m/s  |
-*/
 std::array<double, 4> Suspension::F_cdc_damper(
         const std::array<double, 4> &suspension_current,
         const std::array<double, 4> &suspension_dx_s) {
@@ -143,7 +129,7 @@ std::array<double, 4> Suspension::F_cdc_damper(
         const double Tau_MR = C0 + C1 * H_MR + C2 * std::pow(H_MR, 2) + C3 * std::pow(H_MR, 3);
 
         // 基础粘性阻尼系数
-        const double Cvis_MR = (12 * Eta_MR * L_MR * std::pow(Ap_MR, 2)) / (PI * Rd_MR * std::pow(Td_MR, 3));
+        const double Cvis_MR = (12 * Eta_MR * L_MR * std::pow(Ap_MR, 2)) / (pi * Rd_MR * std::pow(Td_MR, 3));
 
         // 速度方向与死区判断
         double velocity = suspension_dx_s[i];
@@ -155,7 +141,7 @@ std::array<double, 4> Suspension::F_cdc_damper(
         F_c[i] = Cvis_MR * velocity;
 
         // 磁流变可控力
-        double MR_Force_Base = ((Ap_MR * 3 * L_MR * Tau_MR) / Td_MR) + (PI * Rd_MR * L_MR * Tau_MR);
+        double MR_Force_Base = ((Ap_MR * 3 * L_MR * Tau_MR) / Td_MR) + (pi * Rd_MR * L_MR * Tau_MR);
         F_MR[i] = MR_Force_Base * sign_v;
 
         F_total[i] = F_c[i] + F_MR[i];

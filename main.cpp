@@ -1,6 +1,3 @@
-//
-// Created by wjd03 on 2026/1/15.
-//
 #define _USE_MATH_DEFINES
 #include <iostream>
 #include <fstream>
