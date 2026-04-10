@@ -86,8 +86,8 @@ int main() {
                        << dummy_acc << ","            // BodyAcc
                        << dx_s[0] << ","              // BodyVel (这里存悬架速度)
                        << flow_rate_cmd[0] << ","     // FlowRate
-                       << Suspension::AirSpringParams::debug_k1_FL << "," // 刚度
-                       << Suspension::AirSpringParams::debug_c1_FL        // 阻尼
+                       << mySuspension.debug_k1_FL << "," // 刚度
+                       << mySuspension.debug_c1_FL        // 阻尼
                        << std::endl;
     }
 
