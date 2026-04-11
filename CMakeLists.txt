@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 4.1)
-project(SingleChamberAirSpring)
+project(AirSpringSuspension)
 
 set(CMAKE_CXX_STANDARD 20)
-
-add_executable(SingleChamberAirSpring main.cpp
+set(CMAKE_CXX_STANDARD 17)
+add_executable(AirSpringSuspension main.cpp
         AirSpringThermodynamic.h
-        AirSpringThermodynamic.cpp)
+        AirSpringThermodynamic.cpp
+)

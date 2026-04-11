@@ -1,0 +1,3 @@
+D:/CC/AirSpringThermodynamic-main (1)/AirSpringThermodynamic-main/cmake-build-debug/CMakeFiles/AirSpringSuspension.dir
+D:/CC/AirSpringThermodynamic-main (1)/AirSpringThermodynamic-main/cmake-build-debug/CMakeFiles/edit_cache.dir
+D:/CC/AirSpringThermodynamic-main (1)/AirSpringThermodynamic-main/cmake-build-debug/CMakeFiles/rebuild_cache.dir

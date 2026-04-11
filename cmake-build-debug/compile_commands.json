@@ -1,0 +1,14 @@
+[
+{
+  "directory": "D:/CC/AirSpringThermodynamic-main (1)/AirSpringThermodynamic-main/cmake-build-debug",
+  "command": "D:\\CC\\mingw64\\bin\\c++.exe -g -fdiagnostics-color=always -o CMakeFiles\\AirSpringSuspension.dir\\main.cpp.obj -c \"D:\\CC\\AirSpringThermodynamic-main (1)\\AirSpringThermodynamic-main\\main.cpp\"",
+  "file": "D:/CC/AirSpringThermodynamic-main (1)/AirSpringThermodynamic-main/main.cpp",
+  "output": "D:/CC/AirSpringThermodynamic-main (1)/AirSpringThermodynamic-main/cmake-build-debug/CMakeFiles/AirSpringSuspension.dir/main.cpp.obj"
+},
+{
+  "directory": "D:/CC/AirSpringThermodynamic-main (1)/AirSpringThermodynamic-main/cmake-build-debug",
+  "command": "D:\\CC\\mingw64\\bin\\c++.exe -g -fdiagnostics-color=always -o CMakeFiles\\AirSpringSuspension.dir\\AirSpringThermodynamic.cpp.obj -c \"D:\\CC\\AirSpringThermodynamic-main (1)\\AirSpringThermodynamic-main\\AirSpringThermodynamic.cpp\"",
+  "file": "D:/CC/AirSpringThermodynamic-main (1)/AirSpringThermodynamic-main/AirSpringThermodynamic.cpp",
+  "output": "D:/CC/AirSpringThermodynamic-main (1)/AirSpringThermodynamic-main/cmake-build-debug/CMakeFiles/AirSpringSuspension.dir/AirSpringThermodynamic.cpp.obj"
+}
+]
